@@ -6,7 +6,7 @@ contracts byte for byte -- idiosyncrasies included -- and a typed client that
 """
 
 #: Where /v3 lives. Override it to point at staging or at a local process.
-DEFAULT_BASE_URL = "https://api.aronline.com.br"
+DEFAULT_BASE_URL = "https://v3.ar-online.com.br"
 
 #: This package's version -- the same string ``pyproject.toml`` carries.
 VERSION = "0.1.0"
