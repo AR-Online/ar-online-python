@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ['**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint, formato, tipos e ortografia
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - run: uv sync --all-extras --dev
+
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+
+      - name: Ortografia
+        uses: codespell-project/actions-codespell@v2
+
+  test:
+    name: Testes (Python ${{ matrix.python }} · ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Ver o resultado de todas mesmo quando uma reprova: o servidor de
+      # mentira abre socket numa thread, e é aí que sistema operacional difere.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        # A mínima que o pyproject promete, e as seguintes. Sem a primeira, o
+        # `requires-python` é promessa que ninguém confere.
+        python: ['3.10', '3.11', '3.12', '3.13']
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - run: uv sync --all-extras --dev
+        env:
+          UV_PYTHON: ${{ matrix.python }}
+
+      # O corte de 95% mora no pyproject (`--cov-fail-under`); aqui basta rodar.
+      - run: uv run pytest
+
+  audit:
+    name: Auditoria de dependências
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - run: uv sync --all-extras --dev
+
+      # Sem allow_failure: vulnerabilidade conhecida reprova. É a mesma regra
+      # do portão da API — um aviso que não reprova é um aviso que ninguém lê.
+      #
+      # Roda DENTRO do venv do projeto: `pip-audit` solto audita o ambiente da
+      # máquina, e aí ele reclama de pacote que não é nosso.
+      - run: uv run pip-audit --strict
+
+  build:
+    name: Empacotamento
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      # Um wheel que não constrói é um wheel que ninguém instala, e isso só
+      # aparece na hora de publicar se não for conferido aqui.
+      - run: uv build
+      - run: uvx twine check dist/*
