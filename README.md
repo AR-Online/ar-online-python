@@ -106,8 +106,8 @@ from aronline import ApiError
 try:
     client.templates.get("nao-existe")
 except ApiError as error:
-    print(error.code)        # 'not_found'
-    print(error.status)      # 404
+    print(error.code)  # 'not_found'
+    print(error.status)  # 404
     print(error.request_id)  # o número que o suporte pede
 ```
 
@@ -138,9 +138,9 @@ except ApiError as error:
 
 ```python
 Client(
-    token="…",                               # opcional: sem ele, só version funciona
+    token="…",  # opcional: sem ele, só version funciona
     base_url="https://v3.ar-online.com.br",  # padrão; troque para homologação
-    timeout=30.0,                            # padrão, em segundos
+    timeout=30.0,  # padrão, em segundos
 )
 ```
 

@@ -79,7 +79,11 @@ jobs:
       #
       # Roda DENTRO do venv do projeto: `pip-audit` solto audita o ambiente da
       # máquina, e aí ele reclama de pacote que não é nosso.
-      - run: uv run pip-audit --strict
+      #
+      # `--skip-editable` deixa de fora o PRÓPRIO pacote, que o `uv sync`
+      # instala em modo editável e não existe no PyPI — com `--strict`, "não
+      # consegui auditar" é erro, e o SDK reprovava a si mesmo.
+      - run: uv run pip-audit --skip-editable --strict
 
   build:
     name: Empacotamento
