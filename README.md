@@ -1,35 +1,73 @@
-# AR Online — SDK Python
+# AR Online SDK para Python
 
 [![CI](https://github.com/AR-Online/ar-online-python/actions/workflows/ci.yml/badge.svg)](https://github.com/AR-Online/ar-online-python/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776ab.svg)](https://www.python.org/)
-[![Tipado](https://img.shields.io/badge/tipado-mypy%20strict-blue.svg)](#-desenvolvimento)
-[![Cobertura](https://img.shields.io/badge/cobertura-100%25-success.svg)](#-desenvolvimento)
-[![Dependências](https://img.shields.io/badge/depend%C3%AAncias-0-success.svg)](#-o-que-ele-resolve)
 [![Licença](https://img.shields.io/badge/licen%C3%A7a-Apache--2.0-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-n%C3%A3o%20publicado-orange.svg)](#-escopo)
 
-Cliente oficial da API do AR Online para Python. Você não monta URL, não escreve cabeçalho, não desembrulha envelope e não lê status para saber se deu certo: chama função, recebe objeto tipado, e a falha chega como exceção.
+Cliente oficial da API da AR Online para Python.
 
-## ✨ O que ele resolve
+> **Status:** este SDK cobre as consultas da API /v3, que ainda não está
+> publicada — o endereço `v3.ar-online.com.br` entra no ar junto com ela. O
+> envio de notificações em produção é feito hoje pela API legada, que ainda não
+> está neste SDK. Fale com o suporte antes de planejar uma integração em cima
+> dele.
 
-- **O envelope não é uniforme** — `templates`, `tags` e `allowlist` respondem `{"data": …}`; `freshness` e `version` respondem o objeto direto. Desembrulhar tudo, ou nada, quebra metade das chamadas. O SDK sabe por rota.
-- **Uma exceção só** — recusa do catálogo, proxy respondendo HTML e rede fora do ar chegam todas como `ApiError`. Nada de `URLError` ou `JSONDecodeError` vazando para o seu `except`.
-- **`request_id` de primeira classe** — é o primeiro dado que o suporte pede. Um SDK que o engolisse obrigaria você a reproduzir a falha no `curl` para achar o número.
-- **Rota aberta funciona sem token** — `version` é pública. Cliente construído sem credencial chama ela, o que serve para conferir a instalação antes de ter token.
-- **Zero dependência** — só a biblioteca padrão (`urllib`). Nunca briga com o que a sua aplicação já fixou.
-- **Tipado de verdade** — `py.typed`, `mypy --strict` limpo, e `channel` é `Literal`: valor fora da lista o verificador recusa antes de virar chamada perdida.
+## Sobre a AR Online
 
-## 🚀 Começando
+A AR Online é uma plataforma brasileira de notificação eletrônica com validade
+jurídica. Uma única requisição dispara a notificação em até cinco canais, e cada
+etapa do percurso — envio, entrega e leitura — é registrada com carimbo do tempo
+emitido por uma Autoridade de Carimbo do Tempo da ICP-Brasil. Esse registro é o
+que dá à comunicação o valor de prova documental previsto na MP 2.200-2/2001, e
+é o que diferencia a plataforma de um serviço comum de disparo de mensagens.
 
-### Instalação
+Os canais disponíveis são:
+
+| canal | o que é |
+|---|---|
+| AR-Email | e-mail com comprovação de entrega e de leitura |
+| AR-SMS | mensagem de texto para o celular do destinatário |
+| AR-WhatsApp | notificação por WhatsApp |
+| AR-Voz | chamada telefônica automatizada |
+| AR-Cartas | carta física registrada, enviada pelos Correios |
+
+Você escolhe quais canais usar em cada envio. O processamento é assíncrono: a
+API confirma o recebimento na hora e devolve um identificador, que você usa
+depois para consultar o status de cada canal e baixar os comprovantes.
+
+| | |
+|---|---|
+| Site | <https://www.ar-online.com.br> |
+| Documentação da API | <https://docs.ar-online.com.br> |
+| Suporte | <suporte@ar-online.com.br> · +55 (11) 4200-7766 |
+
+## Requisitos
+
+- Python 3.10 ou mais novo
+- Nenhuma dependência de produção: o SDK usa apenas a biblioteca padrão
+
+## Instalação
 
 ```bash
 pip install aronline-sdk
 ```
 
-Python 3.10 ou mais novo.
+## Autenticação
 
-### Primeira chamada
+### Token da API /v3
+
+Solicite em <suporte@ar-online.com.br>. O token fica preso a uma entidade da sua
+conta, e é ela que define quais dados ele enxerga — se você precisa consultar
+mais de uma, peça um token para cada. O padrão é somente leitura.
+
+O token tem prazo de validade. Token ausente, expirado ou revogado responde
+`401`; se um token vazar, peça a revogação e ele deixa de ser aceito na chamada
+seguinte.
+
+Quando a /v3 for publicada, a emissão passa a ser por conta própria, na tela
+*Gerar Token* da documentação, com o mesmo usuário e senha do portal.
+
+## Primeiros passos
 
 ```python
 import os
@@ -42,17 +80,18 @@ for template in client.templates.list(channel="whatsapp"):
     print(template["name"], len(template["variables"]))
 ```
 
-O token é emitido pelo AR Online — a API só verifica, ela não emite. Se você ainda não tem o seu, fale com o suporte.
+## Referência
 
-## 🧰 O que dá para fazer
+Este SDK cobre hoje as consultas da API /v3.
 
-| recurso | funções | precisa de token |
+| método | o que faz | precisa de token |
 |---|---|---|
-| Modelos | `templates.list(channel=…)` · `templates.get(id)` | sim |
-| Etiquetas | `tags.list()` · `tags.get(id)` | sim |
-| Lista de permitidos | `allowlist.list()` | sim |
-| Frescor dos dados | `freshness.get()` | sim |
-| Versão | `version.get()` | **não** |
+| `templates.list(channel=…)` | lista os modelos, com filtro por canal | sim |
+| `templates.get(id)` | busca um modelo pelo UUID | sim |
+| `tags.list()` · `tags.get(id)` | suas etiquetas | sim |
+| `allowlist.list()` | seus destinatários permitidos | sim |
+| `freshness.get()` | o atraso da carga de dados | sim |
+| `version.get()` | qual versão da API está no ar | não |
 
 ### Modelos
 
@@ -62,7 +101,9 @@ do_whatsapp = client.templates.list(channel="whatsapp")
 um = client.templates.get("9b2f-uuid")
 ```
 
-`channel` aceita `email`, `sms`, `whatsapp`, `voice` e `letter`. `aronline.CHANNELS` traz a mesma lista em tempo de execução.
+O filtro `channel` aceita `email`, `sms`, `whatsapp`, `voice` e `letter`. A
+constante `aronline.CHANNELS` traz a mesma lista em tempo de execução, e o tipo
+é `Literal`, então o verificador estático recusa um valor fora da lista.
 
 ### Etiquetas e lista de permitidos
 
@@ -72,9 +113,10 @@ uma = client.tags.get("12")
 permitidos = client.allowlist.list()
 ```
 
-Ambas são **pessoais**: respondem ao que pertence a quem está no token. Token de integração recebe `403` dizendo isso — e não uma lista vazia, que leria como "você não tem nenhuma".
+São recursos **pessoais**: respondem o que pertence a quem está no token. Um
+token de integração, que não representa uma pessoa, recebe `403` nessas rotas.
 
-### Frescor dos dados
+### Atraso da carga
 
 ```python
 frescor = client.freshness.get()
@@ -83,9 +125,8 @@ if frescor["sources_behind"] > 0:
     print(frescor["sources_behind"], "de", frescor["sources_tracked"], "atrasadas")
 ```
 
-Responde a pergunta prática de quando uma consulta devolve menos do que você esperava: o defeito é da API, ou a carga está atrasada? Sem esse número as duas hipóteses parecem a mesma coisa.
-
-Ela responde em **contagens**, não em lista de tabelas: "46 acompanhadas, 3 atrasadas" responde "está fresco?"; quarenta e seis nomes de tabela é relatório que ninguém lê na hora.
+Serve para responder uma pergunta prática: quando uma consulta devolve menos do
+que você esperava, o problema é a API ou a carga de dados está atrasada?
 
 ### Versão
 
@@ -94,11 +135,24 @@ versao = client.version.get()
 print(versao["version"], versao["environment"])
 ```
 
-A única função que funciona **sem token**. É o primeiro dado que o suporte pede.
+É a única chamada que funciona sem token, útil para conferir a instalação antes
+de ter uma credencial.
 
-## ⚠️ Quando dá errado
+## Envio de notificações
 
-Toda recusa vira `ApiError`. Chamada que não levantou, deu certo.
+O envio, a consulta de status por canal e os comprovantes estão na API legada do
+gateway, que **ainda não está neste SDK** — hoje ela está disponível no
+[SDK TypeScript](https://github.com/AR-Online/ar-online-typescript) e chega aqui
+nas próximas versões.
+
+Enquanto isso, o contrato HTTP está documentado em
+<https://docs.ar-online.com.br>, e a credencial do gateway é emitida pelo
+suporte.
+
+## Tratamento de erros
+
+Chamada que não levantou exceção deu certo. Você não precisa ler status HTTP nem
+procurar campo de erro no corpo da resposta.
 
 ```python
 from aronline import ApiError
@@ -108,21 +162,25 @@ try:
 except ApiError as error:
     print(error.code)  # 'not_found'
     print(error.status)  # 404
-    print(error.request_id)  # o número que o suporte pede
+    print(error.request_id)  # informe este número ao abrir um chamado
 ```
 
-| atributo | o que é |
+| atributo | conteúdo |
 |---|---|
-| `status` | o status HTTP (`0` quando a API nem foi alcançada) |
+| `status` | o status HTTP (`0` quando a API não foi alcançada) |
 | `code` | o código do catálogo: `not_found`, `forbidden`, `rate_limited`, … |
-| `message` | a mensagem da API, em pt-BR |
-| `request_id` | identifica a chamada nos nossos registros — **sempre informe num chamado** |
-| `field` | o campo recusado, quando a recusa é sobre um |
+| `message` | a mensagem da API, em português |
+| `request_id` | identifica a chamada nos nossos registros |
+| `field` | o campo recusado, quando a recusa é sobre um campo |
 | `details` | uma entrada por campo, em erro de validação |
 | `retry_after_seconds` | quantos segundos esperar, em `429` e `503` |
 | `retryable` | `True` em `429` e `503` |
 
-Repetir é decisão sua — o SDK não repete sozinho, porque só quem chamou sabe se a operação pode acontecer duas vezes:
+Erro de rede e resposta que não é JSON também chegam como `ApiError`: você trata
+um `except`, não três.
+
+O SDK não repete chamadas automaticamente, porque só quem chamou sabe se a
+operação pode acontecer duas vezes. Quando quiser repetir:
 
 ```python
 import time
@@ -134,39 +192,35 @@ except ApiError as error:
         time.sleep(error.retry_after_seconds or 5)
 ```
 
-## ⚙️ Configuração
+## Configuração do cliente
 
 ```python
 Client(
     token="…",  # opcional: sem ele, só version funciona
-    base_url="https://v3.ar-online.com.br",  # padrão; troque para homologação
+    base_url="https://v3.ar-online.com.br",  # padrão
     timeout=30.0,  # padrão, em segundos
 )
 ```
 
-**Sobre o formato dos objetos:** as funções devolvem `dict` tipado (`TypedDict`), não dataclass, com os campos **como a API os escreve** — `provider_identifier`, `created_at`, `worst_lag_seconds`. Duas razões: não existe camada de conversão que possa divergir do servidor sem ninguém perceber, e campo novo na API continua passando em vez de estourar aqui. Só o `ApiError` foge disso, porque é objeto que o SDK constrói.
+As funções devolvem `TypedDict`, não dataclass, com os campos **como a API os
+escreve** (`provider_identifier`, `created_at`). Não há camada de conversão de
+nomes, para que o que você lê no SDK seja o mesmo que você vê na documentação da
+API e nos nossos registros de suporte. Campo novo na API continua passando, em
+vez de estourar aqui.
 
-## 🎯 Escopo
-
-Este SDK fala **só a `/v3`**. As rotas `/v1` e `/v2` continuam de pé, mas respondem byte a byte o que as APIs antigas respondiam, idiossincrasias incluídas — inclusive erro com status `200`. São espelhos para ninguém precisar migrar no mesmo dia, e um cliente tipado que as "melhorasse" quebraria exatamente quem elas protegem.
-
-A superfície `/v3` é **só de leitura** hoje. Escrita entra nos cinco SDKs na mesma leva em que entrar na API.
-
-## 🧪 Desenvolvimento
+## Desenvolvimento
 
 ```bash
 uv sync
 ```
 
-O portão, peça por peça:
-
 | comando | o que cobra |
 |---|---|
 | `uv run ruff check .` | lint |
 | `uv run ruff format --check .` | formato |
-| `uv run mypy` | `mypy --strict` sobre `src/` **e** `tests/` |
+| `uv run mypy` | `mypy --strict` sobre `src/` e `tests/` |
 | `uv run codespell` | ortografia |
-| `uv run pytest` | testes — reprova abaixo de **95%** de linhas |
+| `uv run pytest` | testes, reprovando abaixo de 95% de linhas |
 | `uv run pip-audit --skip-editable` | vulnerabilidade conhecida em dependência |
 
 | métrica | valor |
@@ -176,17 +230,27 @@ O portão, peça por peça:
 | Dependências de produção | 0 |
 | Vulnerabilidades conhecidas | 0 |
 
-O `pip-audit` roda **dentro do venv do projeto**, e não solto: solto, ele audita o ambiente da máquina e reclama de pacote que não é nosso.
+O `pip-audit` roda dentro do venv do projeto: solto, ele auditaria o ambiente da
+máquina e reclamaria de pacotes que não são deste projeto.
 
-Os testes sobem um `http.server` **de verdade numa porta livre**, numa thread, e falam com ele por `urllib`. Não há dublê: o que este SDK precisa acertar é justamente o fio — qual rota embrulha a resposta, como a recusa volta, o que acontece quando algo que não é a API responde.
+Os testes sobem um `http.server` real em uma porta livre, numa thread, e falam
+com ele por `urllib`. O que o SDK precisa acertar é o comportamento na rede:
+qual rota embrulha a resposta, como a recusa volta e o que acontece quando algo
+que não é a API responde.
 
-## 📚 Documentação
+Para publicar uma versão, veja [PUBLICANDO.md](PUBLICANDO.md).
 
-- [CHANGELOG](CHANGELOG.md) — o que mudou em cada versão
-- [Documentação da API](https://docs.ar-online.com.br) — o contrato HTTP cru
-- [Os SDKs oficiais](https://docs.ar-online.com.br) — os cinco, lado a lado
-- `https://v3.ar-online.com.br/docs/openapi.json` — sempre a lista completa do que está no ar
+## Suporte
 
-## 📄 Licença
+- Dúvidas de integração e emissão de credenciais: <suporte@ar-online.com.br>
+- Telefone: +55 (11) 4200-7766
+- Defeitos neste SDK: [issues do repositório](https://github.com/AR-Online/ar-online-python/issues)
 
-Apache License 2.0 — veja [LICENSE](LICENSE). © 2026 AR ONLINE TECNOLOGIA LTDA.
+Ao abrir um chamado sobre uma chamada que falhou, informe o `request_id` do erro:
+é com ele que localizamos a requisição nos nossos registros.
+
+## Licença
+
+Apache License 2.0 — veja [LICENSE](LICENSE).
+
+© 2026 AR ONLINE TECNOLOGIA LTDA.
