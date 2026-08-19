@@ -66,9 +66,9 @@ class TestEnvelope:
     def test_entrega_a_resposta_inteira_quando_a_rota_nao_envelopa(
         self, api: FakeApi, transport: Transport
     ) -> None:
-        api.answers({"tables_tracked": 46})
+        api.answers({"sources_tracked": 46})
 
-        assert transport.bare("/v3/freshness") == {"tables_tracked": 46}
+        assert transport.bare("/v3/freshness") == {"sources_tracked": 46}
 
     def test_recusa_quando_a_rota_promete_data_e_nao_entrega(
         self, api: FakeApi, transport: Transport

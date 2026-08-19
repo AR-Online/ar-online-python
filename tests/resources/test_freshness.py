@@ -11,9 +11,9 @@ FRESHNESS = {
     "refreshed_at": "2026-08-18T11:42:03-03:00",
     "last_load_at": "2026-08-18T11:40:00-03:00",
     "worst_lag_seconds": 34904,
-    "tables_tracked": 46,
-    "tables_never_loaded": 2,
-    "behind": [{"legacy": "geral.ger_voz", "lag_seconds": 34904}],
+    "sources_tracked": 46,
+    "sources_behind": 3,
+    "sources_not_loaded": 2,
 }
 
 

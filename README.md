@@ -69,13 +69,17 @@ Também pessoal, pelo mesmo motivo.
 ```python
 frescor = client.freshness.get()
 
-if frescor["worst_lag_seconds"] is not None and frescor["worst_lag_seconds"] > 900:
-    print("a carga está atrasada", frescor["behind"])
+if frescor["sources_behind"] > 0:
+    print(frescor["sources_behind"], "de", frescor["sources_tracked"], "atrasadas")
 ```
 
 Responde a pergunta prática de quando uma consulta devolve menos do que você
 esperava: o defeito é da API, ou a carga está atrasada? Sem esse número as
 duas hipóteses parecem a mesma coisa.
+
+Ela responde em **contagens**, não numa lista de tabelas: "46 acompanhadas, 3
+atrasadas" responde "está fresco?"; quarenta e seis nomes de tabela é um
+relatório que ninguém lê na hora em que a pergunta é feita.
 
 ### Versão
 

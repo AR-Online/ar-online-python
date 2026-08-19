@@ -11,7 +11,6 @@ from aronline.http.transport import DEFAULT_BASE_URL, DEFAULT_TIMEOUT
 from aronline.models import (
     CHANNELS,
     AllowlistEntry,
-    BehindTable,
     Channel,
     Freshness,
     Tag,
@@ -30,7 +29,6 @@ __all__ = [
     "VERSION",
     "AllowlistEntry",
     "ApiError",
-    "BehindTable",
     "Channel",
     "Client",
     "ErrorDetail",

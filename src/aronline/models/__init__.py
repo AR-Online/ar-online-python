@@ -8,7 +8,7 @@ a field added to the API keeps flowing through instead of raising here.
 
 from aronline.models.allowlist_entry import AllowlistEntry
 from aronline.models.channel import CHANNELS, Channel
-from aronline.models.freshness import BehindTable, Freshness
+from aronline.models.freshness import Freshness
 from aronline.models.tag import Tag
 from aronline.models.template import Template, TemplateVariable
 from aronline.models.version import Version
@@ -16,7 +16,6 @@ from aronline.models.version import Version
 __all__ = [
     "CHANNELS",
     "AllowlistEntry",
-    "BehindTable",
     "Channel",
     "Freshness",
     "Tag",
