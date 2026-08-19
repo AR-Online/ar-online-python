@@ -182,6 +182,7 @@ Os testes sobem um `http.server` **de verdade numa porta livre**, numa thread, e
 
 ## 📚 Documentação
 
+- [CHANGELOG](CHANGELOG.md) — o que mudou em cada versão
 - [Documentação da API](https://docs.ar-online.com.br) — o contrato HTTP cru
 - [Os SDKs oficiais](https://docs.ar-online.com.br) — os cinco, lado a lado
 - `https://v3.ar-online.com.br/docs/openapi.json` — sempre a lista completa do que está no ar
