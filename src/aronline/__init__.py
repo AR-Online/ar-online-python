@@ -5,10 +5,38 @@ contracts byte for byte -- idiosyncrasies included -- and a typed client that
 "improved" them would break the callers they exist to keep working.
 """
 
-#: Where /v3 lives. Override it to point at staging or at a local process.
-DEFAULT_BASE_URL = "https://v3.ar-online.com.br"
+from aronline.client import Client
+from aronline.errors import ApiError, ErrorDetail
+from aronline.http.transport import DEFAULT_BASE_URL, DEFAULT_TIMEOUT
+from aronline.models import (
+    CHANNELS,
+    AllowlistEntry,
+    BehindTable,
+    Channel,
+    Freshness,
+    Tag,
+    Template,
+    TemplateVariable,
+    Version,
+)
 
 #: This package's version -- the same string ``pyproject.toml`` carries.
 VERSION = "0.1.0"
 
-__all__ = ["DEFAULT_BASE_URL", "VERSION"]
+__all__ = [
+    "CHANNELS",
+    "DEFAULT_BASE_URL",
+    "DEFAULT_TIMEOUT",
+    "VERSION",
+    "AllowlistEntry",
+    "ApiError",
+    "BehindTable",
+    "Channel",
+    "Client",
+    "ErrorDetail",
+    "Freshness",
+    "Tag",
+    "Template",
+    "TemplateVariable",
+    "Version",
+]

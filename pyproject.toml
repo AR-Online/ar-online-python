@@ -28,7 +28,7 @@ Issues = "https://github.com/AR-Online/ar-online-python/issues"
 Documentation = "https://docs.ar-online.com.br"
 
 [dependency-groups]
-dev = ["mypy>=1.13", "pytest>=8.3", "ruff>=0.8"]
+dev = ["mypy>=1.13", "pytest>=8.3", "pytest-cov>=6.0", "ruff>=0.8"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/aronline"]
@@ -47,3 +47,18 @@ files = ["src", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# src/ para o pacote, "." para o `from tests.support...` dos testes. Sem isto
+# a suíte só roda depois de um `pip install -e .`, e um teste que exige
+# instalação é um teste que ninguém roda antes de commitar.
+pythonpath = ["src", "."]
+addopts = "--cov=aronline --cov-report=term-missing --cov-fail-under=90"
+
+[tool.coverage.run]
+branch = true
+source = ["src/aronline"]
+
+[tool.coverage.report]
+# Módulo só de tipo não emite código: o TypedDict some em tempo de execução,
+# e cobrar cobertura dele mede o interpretador, não o SDK.
+omit = ["*/models/*", "*/__init__.py"]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "\\.\\.\\."]

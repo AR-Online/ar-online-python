@@ -2,11 +2,9 @@
 
 Cliente oficial da API do AR Online para Python.
 
-> **Estado: em construção.** O que está pronto é o repositório — licença,
-> empacotamento, build e publicação. O cliente HTTP ainda não: hoje o pacote
-> exporta só o endereço padrão e a versão. Enquanto isso, a API responde a
-> qualquer cliente HTTP — o contrato está abaixo e em
-> [docs.ar-online.com.br](https://docs.ar-online.com.br).
+Você não monta URL, não escreve cabeçalho, não desembrulha envelope e não lê
+status para saber se deu certo. Chama função, recebe objeto tipado, e a falha
+chega como exceção.
 
 ## Instalação
 
@@ -14,104 +12,163 @@ Cliente oficial da API do AR Online para Python.
 pip install aronline-sdk
 ```
 
-Python 3.10 ou mais novo. O pacote é tipado (`py.typed`).
+Python 3.10 ou mais novo. Tipado (`py.typed`), **zero dependência** — usa só a
+biblioteca padrão, então nunca briga com o que a sua aplicação já fixou.
+
+## Começando
 
 ```python
-from aronline import DEFAULT_BASE_URL, VERSION
+import os
+
+from aronline import Client
+
+client = Client(token=os.environ["AR_TOKEN"])
+
+for template in client.templates.list(channel="whatsapp"):
+    print(template["name"], len(template["variables"]))
 ```
 
-## A API que este SDK fala
+O token é emitido pelo AR Online. Se você ainda não tem o seu, fale com o
+suporte — a API só verifica token, ela não emite.
 
-Só a **`/v3`**. As rotas `/v1` e `/v2` existem e continuam de pé, mas elas
-respondem **byte a byte** o que as APIs antigas respondiam, idiossincrasias
-incluídas — inclusive erro com status `200`. São espelhos para ninguém precisar
-migrar no mesmo dia, não contrato novo, e um cliente tipado que as
-"melhorasse" quebraria exatamente quem elas existem para não quebrar.
+## O que dá para fazer
 
-### Endereço
+### Modelos
 
-```
-https://v3.ar-online.com.br/v3/<recurso>
-```
-
-### Autenticação
-
-Token **JWT RS256** no cabeçalho:
-
-```
-Authorization: Bearer <token>
+```python
+todos = client.templates.list()
+do_whatsapp = client.templates.list(channel="whatsapp")
+um = client.templates.get("9b2f-uuid")
 ```
 
-O token é emitido pelo emissor do AR Online — **a API não emite token**, ela
-só tem a chave pública e verifica. Dois tipos de identidade circulam:
+`channel` aceita `email`, `sms`, `whatsapp`, `voice` e `letter` — é um
+`Literal`, então o mypy recusa qualquer outro valor antes de virar uma chamada
+perdida. Em tempo de execução, `aronline.CHANNELS` tem a mesma lista.
 
-- **pessoa** — o token traz `sub`. Rotas pessoais (etiquetas, lista de
-  permitidos) respondem a este;
-- **integração** — sem `sub`, ligado à entidade. Serve para servidor a
-  servidor; nas rotas pessoais recebe `403` dizendo isso, e não uma lista
-  vazia (que leria como "você não tem nada").
+### Etiquetas
 
-Cada rota exige uma permissão nominal, que vem na claim `permissions` do
-token — a tabela abaixo diz qual.
-
-### Formato das respostas
-
-Sucesso vem envelopado em `data`:
-
-```json
-{ "data": [{ "id": "…", "name": "…" }] }
+```python
+etiquetas = client.tags.list()
+uma = client.tags.get("12")
 ```
 
-Falha vem envelopada em `error`, com status HTTP de verdade:
+Etiqueta é **pessoal**: essas funções respondem às etiquetas de quem está no
+token. Token de integração recebe `403` dizendo isso, em vez de uma lista
+vazia — que leria como "você não tem nenhuma".
 
-```json
-{
-  "error": {
-    "code": "not_found",
-    "message": "Modelo não encontrado.",
-    "request_id": "0f3a…"
-  }
-}
+### Lista de permitidos
+
+```python
+permitidos = client.allowlist.list()
 ```
 
-O catálogo de códigos:
+Também pessoal, pelo mesmo motivo.
 
-| status | `code` | quando |
-|---|---|---|
-| 400 | `invalid_request` | a requisição não pôde ser lida (inclui filtro desconhecido) |
-| 401 | `unauthenticated` | credencial ausente ou inválida |
-| 403 | `forbidden` | autenticado, sem permissão para a ação |
-| 404 | `not_found` | não existe — **ou** não é seu (responder 403 contaria que existe) |
-| 409 | `conflict` | conflito com o estado atual |
-| 422 | `business_rule` | recusado pela regra de negócio |
-| 429 | `rate_limited` | limite excedido — veja o cabeçalho `Retry-After` |
-| 503 | `unavailable` | indisponível no momento — veja `Retry-After` |
-| 500 | `internal_error` | falha nossa |
+### Frescor dos dados
 
-Toda resposta, com erro ou sem, traz `X-Request-Id`. É o `request_id` do corpo
-e o primeiro dado que o suporte pede.
+```python
+frescor = client.freshness.get()
 
-### O que a /v3 responde hoje
+if frescor["worst_lag_seconds"] is not None and frescor["worst_lag_seconds"] > 900:
+    print("a carga está atrasada", frescor["behind"])
+```
 
-| rota | permissão | responde |
-|---|---|---|
-| `GET /v3/templates` | `templates:read` | os modelos que a sua identidade alcança |
-| `GET /v3/templates/{id}` | `templates:read` | um modelo pelo uuid público |
-| `GET /v3/tags` | `tags:read` | as suas etiquetas (token de pessoa) |
-| `GET /v3/tags/{id}` | `tags:read` | uma etiqueta sua |
-| `GET /v3/allowlist` | `allowlist:read` | os destinatários permitidos (token de pessoa) |
-| `GET /v3/freshness` | `freshness:read` | há quanto tempo a cópia dos dados foi atualizada |
-| `GET /v3/version` | — | versão da API, migration mínima e ambiente (rota aberta) |
+Responde a pergunta prática de quando uma consulta devolve menos do que você
+esperava: o defeito é da API, ou a carga está atrasada? Sem esse número as
+duas hipóteses parecem a mesma coisa.
 
-A superfície está crescendo. O documento OpenAPI em
-`https://v3.ar-online.com.br/docs/openapi.json` é sempre a lista completa do
-que está no ar.
+### Versão
+
+```python
+versao = client.version.get()
+print(versao["version"], versao["environment"])
+```
+
+A única função que funciona **sem token** — é rota aberta. É o primeiro dado
+que o suporte pede.
+
+## Quando dá errado
+
+Toda recusa da API vira `ApiError`. Chamada que não levantou, deu certo.
+
+```python
+from aronline import ApiError
+
+try:
+    client.templates.get("nao-existe")
+except ApiError as error:
+    print(error.code)        # 'not_found'
+    print(error.status)      # 404
+    print(error.request_id)  # o número que o suporte pede
+```
+
+O que vem em `ApiError`:
+
+| atributo | o que é |
+|---|---|
+| `status` | o status HTTP (`0` quando a API nem foi alcançada) |
+| `code` | o código do catálogo: `not_found`, `forbidden`, `rate_limited`, … |
+| `message` | a mensagem da API, em pt-BR |
+| `request_id` | identifica a chamada nos nossos registros — **sempre informe num chamado** |
+| `field` | o campo recusado, quando a recusa é sobre um |
+| `details` | uma entrada por campo, em erro de validação |
+| `retry_after_seconds` | quantos segundos esperar, em `429` e `503` |
+| `retryable` | `True` em `429` e `503` |
+
+Repetir a chamada é decisão sua — o SDK não repete sozinho:
+
+```python
+import time
+
+except ApiError as error:
+    if error.retryable:
+        time.sleep(error.retry_after_seconds or 5)
+```
+
+Duas coisas que **não** viram exceção estranha: rede fora do ar e resposta que
+não é JSON (um proxy respondendo no lugar da API) também chegam como
+`ApiError`, com `code` `unreachable` e `invalid_response`. Você tem um tipo só
+para tratar — nada de `URLError` ou `JSONDecodeError` vazando.
+
+## Configuração
+
+```python
+Client(
+    token="…",                             # opcional: sem ele, só version funciona
+    base_url="https://v3.ar-online.com.br",  # padrão; troque para homologação
+    timeout=30.0,                          # padrão, em segundos
+)
+```
+
+## Sobre o formato dos objetos
+
+As funções devolvem `dict` tipado (`TypedDict`), não dataclass, e com os campos
+**como a API os nomeia** — `provider_identifier`, `created_at`,
+`worst_lag_seconds`. Duas razões: não existe camada de conversão que possa
+divergir do servidor sem ninguém perceber, e campo novo na API continua
+passando em vez de estourar aqui. Só o `ApiError` foge disso, porque é objeto
+que o SDK constrói, não que ele repassa.
+
+## Escopo
+
+Este SDK fala **só a `/v3`**. As rotas `/v1` e `/v2` continuam de pé, mas elas
+respondem byte a byte o que as APIs antigas respondiam, idiossincrasias
+incluídas — inclusive erro com status `200`. São espelhos para ninguém
+precisar migrar no mesmo dia, e um cliente tipado que as "melhorasse"
+quebraria exatamente quem elas protegem.
+
+A superfície `/v3` é só de leitura hoje. Escrita entra nos cinco SDKs na mesma
+leva em que entrar na API.
+
+Quem precisa do contrato HTTP cru — porque está escrevendo um cliente em outra
+linguagem, ou depurando o que passou no fio — encontra em
+[docs.ar-online.com.br](https://docs.ar-online.com.br).
 
 ## Desenvolvimento
 
 ```bash
 uv sync
-uv run ruff check .
+uv run ruff check . && uv run ruff format --check .
 uv run mypy
 uv run pytest
 ```
