@@ -1,5 +1,8 @@
 # AR Online — SDK Python
 
+[![CI](https://github.com/AR-Online/ar-online-python/actions/workflows/ci.yml/badge.svg)](https://github.com/AR-Online/ar-online-python/actions/workflows/ci.yml)
+[![Licença: Apache 2.0](https://img.shields.io/badge/licen%C3%A7a-Apache%202.0-blue.svg)](LICENSE)
+
 Cliente oficial da API do AR Online para Python.
 
 Você não monta URL, não escreve cabeçalho, não desembrulha envelope e não lê
@@ -172,10 +175,28 @@ linguagem, ou depurando o que passou no fio — encontra em
 
 ```bash
 uv sync
-uv run ruff check . && uv run ruff format --check .
-uv run mypy
-uv run pytest
 ```
+
+O portão, peça por peça:
+
+| comando | o que cobra |
+|---|---|
+| `uv run ruff check .` | lint |
+| `uv run ruff format --check .` | formato |
+| `uv run mypy` | `mypy --strict` sobre `src/` **e** `tests/` |
+| `uv run codespell` | ortografia |
+| `uv run pytest` | testes — reprova abaixo de **95%** de linhas |
+| `uv run pip-audit --strict` | vulnerabilidade conhecida em dependência |
+
+Hoje: **38 testes**, 100% de cobertura.
+
+O `pip-audit` roda **dentro do venv do projeto**, e não solto: solto, ele
+audita o ambiente da máquina e reclama de pacote que não é nosso.
+
+Os testes sobem um `http.server` de verdade numa porta livre, numa thread, e
+falam com ele por `urllib`. Não há dublê: o que este SDK precisa acertar é
+justamente o fio — qual rota embrulha a resposta, como a recusa volta, o que
+acontece quando algo que não é a API responde.
 
 ## Licença
 
