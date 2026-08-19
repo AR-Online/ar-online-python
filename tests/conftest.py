@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from aronline import Client
+from aronline import Client, LegacyArea
 from tests.support.fake_api import FakeApi
 
 
@@ -30,3 +30,9 @@ def client(api: FakeApi) -> Client:
 def anonymous(api: FakeApi) -> Client:
     """A client with no credential -- only the open route works on it."""
     return Client(base_url=api.base_url)
+
+
+@pytest.fixture
+def legacy(api: FakeApi) -> LegacyArea:
+    """The legacy area of a client pointed at the fake, with the gateway credential."""
+    return Client(legacy_base_url=api.base_url, legacy_token="tok-gw").legacy

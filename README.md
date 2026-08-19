@@ -6,12 +6,6 @@
 
 Cliente oficial da API da AR Online para Python.
 
-> **Status:** este SDK cobre as consultas da API /v3, que ainda não está
-> publicada — o endereço `v3.ar-online.com.br` entra no ar junto com ela. O
-> envio de notificações em produção é feito hoje pela API legada, que ainda não
-> está neste SDK. Fale com o suporte antes de planejar uma integração em cima
-> dele.
-
 ## Sobre a AR Online
 
 A AR Online é uma plataforma brasileira de notificação eletrônica com validade
@@ -54,6 +48,15 @@ pip install aronline-sdk
 
 ## Autenticação
 
+A plataforma tem duas superfícies de API, e cada uma usa uma credencial
+diferente. O SDK aceita as duas no mesmo cliente e envia cada uma no formato que
+a sua superfície espera.
+
+### Token do gateway (API legada)
+
+É a credencial que você usa para enviar notificações e consultar status hoje.
+Solicite em <suporte@ar-online.com.br>. No SDK, ela vai em `legacy_token`.
+
 ### Token da API /v3
 
 Solicite em <suporte@ar-online.com.br>. O token fica preso a uma entidade da sua
@@ -64,25 +67,122 @@ O token tem prazo de validade. Token ausente, expirado ou revogado responde
 `401`; se um token vazar, peça a revogação e ele deixa de ser aceito na chamada
 seguinte.
 
-Quando a /v3 for publicada, a emissão passa a ser por conta própria, na tela
-*Gerar Token* da documentação, com o mesmo usuário e senha do portal.
+> **A /v3 ainda não está publicada.** O endereço `v3.ar-online.com.br`, que é o
+> padrão do SDK para essa superfície, entra no ar junto com ela — assim como a
+> emissão de token por conta própria, com o mesmo usuário e senha do portal. Até
+> lá, a parte da /v3 deste SDK serve para desenvolver contra um ambiente de
+> teste, e é o `client.legacy` que fala com a API em produção.
 
 ## Primeiros passos
+
+O envio de notificações é feito hoje pela API legada, exposta no SDK em
+`client.legacy`:
 
 ```python
 import os
 
 from aronline import Client
 
-client = Client(token=os.environ["AR_TOKEN"])
+client = Client(legacy_token=os.environ["AR_GW_TOKEN"])
 
-for template in client.templates.list(channel="whatsapp"):
-    print(template["name"], len(template["variables"]))
+enviado = client.legacy.send(
+    {
+        "nameTo": "João da Silva",
+        "to": "joao@exemplo.com",
+        "subject": "Notificação de vencimento",
+        "content": "<p>Prezado João, identificamos uma pendência em seu contrato.</p>",
+        "sms": {"number": "11999998888"},
+    }
+)
+
+print("notificação aceita:", enviado["idEmail"])
+```
+
+Guarde o `idEmail`: é com ele que você consulta o status de qualquer canal e
+baixa os comprovantes.
+
+```python
+status = client.legacy.status.email(enviado["idEmail"])
+
+print(status["description"])  # 'Processado', 'Enviado', 'Entregue', 'Lido'
 ```
 
 ## Referência
 
-Este SDK cobre hoje as consultas da API /v3.
+### Envio e acompanhamento (`client.legacy`)
+
+| método | o que faz |
+|---|---|
+| `legacy.send(envio)` | envia a notificação em um ou mais canais |
+| `legacy.status.email(id)` | status do AR-Email |
+| `legacy.status.sms(id)` | status do AR-SMS |
+| `legacy.status.whatsapp(id)` | status do AR-WhatsApp |
+| `legacy.status.voz(id)` | status do AR-Voz |
+| `legacy.status.carta(id)` | status do AR-Cartas, com o rastreio dos Correios |
+| `legacy.status.full(id)` | dados de perícia de todos os canais numa chamada |
+| `legacy.sending_proof(id)` | comprovante de envio em PDF |
+| `legacy.laudo(id)` | laudo pericial em PDF |
+| `legacy.finalizar_regua(id)` | encerra a régua de notificação do envio |
+| `legacy.templates.list(type=…)` | lista os modelos da sua entidade |
+| `legacy.templates.get(id)` | busca um modelo |
+| `legacy.templates.update(id, campos)` | edita nome e compartilhamento |
+| `legacy.templates.deactivate(id)` | desativa um modelo |
+| `legacy.templates.set_status(id, ativo=…)` | ativa ou desativa um modelo |
+
+Envio multicanal: cada canal é um bloco opcional no corpo.
+
+```python
+client.legacy.send(
+    {
+        "nameTo": "João da Silva",
+        "to": "joao@exemplo.com",
+        "subject": "Notificação de vencimento",
+        "content": "<p>Conteúdo em HTML.</p>",
+        "customID": "contrato-4471",  # sua referência, devolvida na consulta de status
+        "attachments": [{"name": "contrato.pdf", "base64": "…"}],
+        "sms": {
+            "number": "11999998888",
+            "typeSend": "1",  # '1' só se o e-mail não for entregue; '2' sempre
+            "customMessage": "Você recebeu um AR-Email. Acesse: {SHORT_LINK}",
+        },
+        "whatsapp": {"number": "11999998888", "variables": {"template": "aviso_01"}},
+        "voz": {"number": "1133334444", "template": "aviso_voz"},
+        "carta": {"name": "João da Silva", "modelo": "padrao"},
+    }
+)
+```
+
+Comprovantes: o comprovante de envio chega em base64 dentro de um JSON e o SDK
+já o decodifica; o laudo pericial chega como PDF binário.
+
+```python
+from pathlib import Path
+
+comprovante = client.legacy.sending_proof(id_email)
+
+if comprovante["pdf"] is not None:
+    Path("comprovante.pdf").write_bytes(comprovante["pdf"])
+else:
+    print(comprovante["message"])  # ainda sem status de entrega
+
+Path("laudo.pdf").write_bytes(client.legacy.laudo(id_email))
+```
+
+Os objetos de status vêm com os campos **como o gateway os escreve**
+(`dateSend`, `customID`, `idEmail`), e as ausências ficam como vieram. Onde o
+contrato responde `""` ou `None`, o campo existe com esse valor; onde a data que
+ainda não aconteceu **some da resposta**, a chave não existe — WhatsApp, voz e
+carta fazem isso. Pergunte `"dateDelivery" in status`, não
+`status["dateDelivery"] is None`.
+
+As datas do legado são `str` no formato `"18/07/2026 01:01:32"`, sem fuso. O SDK
+não as converte para `datetime`: o formato não identifica um instante sem
+ambiguidade, e uma conversão aqui seria um chute com cara de precisão.
+
+### Consultas da API /v3 (`client.*`)
+
+A /v3 é a API nova, com contrato limpo e validação estrita. Hoje ela é somente
+de leitura.
 
 | método | o que faz | precisa de token |
 |---|---|---|
@@ -93,7 +193,7 @@ Este SDK cobre hoje as consultas da API /v3.
 | `freshness.get()` | o atraso da carga de dados | sim |
 | `version.get()` | qual versão da API está no ar | não |
 
-### Modelos
+#### Modelos
 
 ```python
 todos = client.templates.list()
@@ -105,7 +205,7 @@ O filtro `channel` aceita `email`, `sms`, `whatsapp`, `voice` e `letter`. A
 constante `aronline.CHANNELS` traz a mesma lista em tempo de execução, e o tipo
 é `Literal`, então o verificador estático recusa um valor fora da lista.
 
-### Etiquetas e lista de permitidos
+#### Etiquetas e lista de permitidos
 
 ```python
 etiquetas = client.tags.list()
@@ -116,7 +216,7 @@ permitidos = client.allowlist.list()
 São recursos **pessoais**: respondem o que pertence a quem está no token. Um
 token de integração, que não representa uma pessoa, recebe `403` nessas rotas.
 
-### Atraso da carga
+#### Atraso da carga
 
 ```python
 frescor = client.freshness.get()
@@ -128,7 +228,7 @@ if frescor["sources_behind"] > 0:
 Serve para responder uma pergunta prática: quando uma consulta devolve menos do
 que você esperava, o problema é a API ou a carga de dados está atrasada?
 
-### Versão
+#### Versão
 
 ```python
 versao = client.version.get()
@@ -138,21 +238,12 @@ print(versao["version"], versao["environment"])
 É a única chamada que funciona sem token, útil para conferir a instalação antes
 de ter uma credencial.
 
-## Envio de notificações
-
-O envio, a consulta de status por canal e os comprovantes estão na API legada do
-gateway, que **ainda não está neste SDK** — hoje ela está disponível no
-[SDK TypeScript](https://github.com/AR-Online/ar-online-typescript) e chega aqui
-nas próximas versões.
-
-Enquanto isso, o contrato HTTP está documentado em
-<https://docs.ar-online.com.br>, e a credencial do gateway é emitida pelo
-suporte.
-
 ## Tratamento de erros
 
 Chamada que não levantou exceção deu certo. Você não precisa ler status HTTP nem
 procurar campo de erro no corpo da resposta.
+
+A /v3 levanta `ApiError`:
 
 ```python
 from aronline import ApiError
@@ -179,6 +270,32 @@ except ApiError as error:
 Erro de rede e resposta que não é JSON também chegam como `ApiError`: você trata
 um `except`, não três.
 
+A API legada levanta `LegacyApiError`, com os campos do contrato antigo:
+
+```python
+from aronline import LegacyApiError
+
+try:
+    client.legacy.templates.get("nao-existe")
+except LegacyApiError as error:
+    print(error.status)  # 404 — o código que vale
+    print(error.http_status)  # 200 — o que o protocolo respondeu
+    print(error.body)  # o corpo cru, como chegou
+```
+
+| atributo | conteúdo |
+|---|---|
+| `status` | o código que vale, mesmo quando o HTTP respondeu 200 |
+| `http_status` | o status que veio no protocolo (`0` quando o gateway não foi alcançado) |
+| `message` | a mensagem do gateway, em português |
+| `body` | o corpo da resposta, exatamente como chegou |
+
+Os dois casos que essa separação existe para resolver: a família de templates
+responde **HTTP 200 até em erro**, com o código de verdade dentro do envelope
+`{"data": …, "statusCode": …}`, e o SDK levanta a exceção pelo código de dentro.
+Já a consulta de voz responde 200 com uma frase quando o uuid não tem registro —
+isso **não** é erro, e volta como resposta normal.
+
 O SDK não repete chamadas automaticamente, porque só quem chamou sabe se a
 operação pode acontecer duas vezes. Quando quiser repetir:
 
@@ -196,17 +313,53 @@ except ApiError as error:
 
 ```python
 Client(
-    token="…",  # opcional: sem ele, só version funciona
+    token="…",  # credencial da /v3
+    legacy_token="…",  # credencial do gateway
     base_url="https://v3.ar-online.com.br",  # padrão
-    timeout=30.0,  # padrão, em segundos
+    legacy_base_url="https://api.ar-online.com.br",  # padrão
+    timeout=30.0,  # padrão, em segundos, vale para as duas superfícies
 )
 ```
 
+Cada credencial é opcional: informe só a da superfície que você vai usar. Os
+endereços podem ser trocados para apontar a um ambiente de teste, e um não mexe
+no outro. O token do gateway vai **cru** no cabeçalho `authorization`, sem
+`Bearer` — o oposto da /v3 —, e o SDK cuida disso; uma área nunca manda a
+credencial da outra.
+
 As funções devolvem `TypedDict`, não dataclass, com os campos **como a API os
-escreve** (`provider_identifier`, `created_at`). Não há camada de conversão de
-nomes, para que o que você lê no SDK seja o mesmo que você vê na documentação da
-API e nos nossos registros de suporte. Campo novo na API continua passando, em
-vez de estourar aqui.
+escreve** (`provider_identifier`, `created_at`, `customID`). Não há camada de
+conversão de nomes, para que o que você lê no SDK seja o mesmo que você vê na
+documentação da API e nos nossos registros de suporte. Campo novo na API
+continua passando, em vez de estourar aqui.
+
+## Webhooks
+
+Em vez de consultar o status repetidamente, você pode receber uma chamada `POST`
+a cada mudança. A configuração é feita com o suporte, que cadastra o seu endpoint
+e os parâmetros de autenticação. O SDK não recebe a requisição por você, mas
+exporta os tipos do payload:
+
+```python
+from aronline import WebhookPayloadV1, WebhookPayloadV2
+```
+
+Veja <https://docs.ar-online.com.br/webhooks/visao-geral> para o fluxo completo,
+incluindo a política de retentativas.
+
+## As duas superfícies, e o caminho entre elas
+
+A **API legada** é a que está em produção hoje e concentra envio, status e
+comprovantes. A **/v3** é a API nova, para onde as funcionalidades estão sendo
+migradas aos poucos.
+
+Quando uma rota ganha equivalente na /v3, a função correspondente de
+`client.legacy` passa a falar com a /v3 internamente, **sem mudar de
+assinatura**. Na prática, você migra atualizando o pacote, não reescrevendo a sua
+integração. Cada troca dessas é registrada no [CHANGELOG](CHANGELOG.md).
+
+O equivalente de hoje: a leitura de modelos do gateway tem a `/v3`
+(`client.templates`); envio, status e provas ainda não têm.
 
 ## Desenvolvimento
 
@@ -225,7 +378,7 @@ uv sync
 
 | métrica | valor |
 |---|---|
-| Testes | 38 |
+| Testes | 86 |
 | Cobertura | 100% |
 | Dependências de produção | 0 |
 | Vulnerabilidades conhecidas | 0 |
@@ -246,8 +399,9 @@ Para publicar uma versão, veja [PUBLICANDO.md](PUBLICANDO.md).
 - Telefone: +55 (11) 4200-7766
 - Defeitos neste SDK: [issues do repositório](https://github.com/AR-Online/ar-online-python/issues)
 
-Ao abrir um chamado sobre uma chamada que falhou, informe o `request_id` do erro:
-é com ele que localizamos a requisição nos nossos registros.
+Ao abrir um chamado sobre uma chamada da /v3 que falhou, informe o `request_id`
+do erro: é com ele que localizamos a requisição nos nossos registros. Na API
+legada, o `idEmail` do envio faz esse papel.
 
 ## Licença
 

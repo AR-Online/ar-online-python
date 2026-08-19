@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "aronline-sdk"
 version = "0.1.0"
-description = "SDK oficial da API do AR Online (/v3)"
+description = "SDK oficial da API do AR Online (/v3 e o gateway legado)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -39,6 +39,13 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Os campos do gateway antigo vêm em camelCase no fio (`dateSend`, `customID`,
+# `idEmail`) e o SDK os mantém como a API os escreve — renomear quebraria a
+# fidelidade que a área de legado existe para dar. Vale só para os tipos de
+# resposta; o resto do pacote segue a convenção do Python.
+"src/aronline/legacy/models/*.py" = ["N815"]
 
 [tool.mypy]
 python_version = "3.10"

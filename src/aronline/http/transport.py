@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -10,6 +9,7 @@ from typing import Any
 
 from aronline.errors import ApiError
 from aronline.http.error_envelope import to_api_error
+from aronline.http.json_body import UNPARSED, parse_json
 
 __all__ = ["DEFAULT_BASE_URL", "DEFAULT_TIMEOUT", "Transport"]
 
@@ -97,7 +97,7 @@ class Transport:
         )
 
         status, text, headers = self._send(request)
-        body = _parse_json(text)
+        body = parse_json(text)
         request_id = headers.get("X-Request-Id")
 
         if status >= 400:
@@ -106,7 +106,7 @@ class Transport:
         # A 200 that is not JSON is something other than the API answering. It
         # fails like any other refusal -- a raw JSONDecodeError leaking out
         # here would send whoever hit it looking for a bug in their own code.
-        if body is _UNPARSED:
+        if body is UNPARSED:
             raise ApiError(
                 status=status,
                 code="invalid_response",
@@ -152,21 +152,7 @@ class Transport:
             ) from error
 
 
-class _Unparsed:
-    """Tells "the body was not JSON" apart from "the body was ``null``"."""
-
-
-_UNPARSED = _Unparsed()
-
-
 def _read(response: Any) -> str:
     payload: bytes = response.read()
 
     return payload.decode("utf-8", errors="replace")
-
-
-def _parse_json(text: str) -> Any:
-    try:
-        return json.loads(text)
-    except ValueError:
-        return _UNPARSED

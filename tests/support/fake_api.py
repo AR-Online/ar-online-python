@@ -24,6 +24,9 @@ class Received:
     path: str
     authorization: str | None
     accept: str | None
+    content_type: str | None = None
+    #: The raw request body -- ``""`` when there was none.
+    body: str = ""
 
 
 @dataclass
@@ -47,12 +50,16 @@ class FakeApi:
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
-            def do_GET(self) -> None:
+            def _handle(self) -> None:
+                length = int(self.headers.get("Content-Length") or 0)
+
                 fake._received = Received(
                     method=self.command,
                     path=self.path,
                     authorization=self.headers.get("Authorization"),
                     accept=self.headers.get("Accept"),
+                    content_type=self.headers.get("Content-Type"),
+                    body=self.rfile.read(length).decode("utf-8") if length else "",
                 )
 
                 reply = fake._reply
@@ -68,6 +75,24 @@ class FakeApi:
 
                 self.end_headers()
                 self.wfile.write(payload)
+
+            # The legacy gateway uses five verbs, and `BaseHTTPRequestHandler`
+            # dispatches by hook name. They all answer the same way: what the
+            # tests assert on is `received.method`, not which hook ran.
+            def do_GET(self) -> None:
+                self._handle()
+
+            def do_POST(self) -> None:
+                self._handle()
+
+            def do_PUT(self) -> None:
+                self._handle()
+
+            def do_PATCH(self) -> None:
+                self._handle()
+
+            def do_DELETE(self) -> None:
+                self._handle()
 
             def log_message(self, *_: Any) -> None:
                 """Quiet: the suite's output is the assertions, not the access log."""
@@ -124,3 +149,7 @@ class FakeApi:
     def answers_raw(self, status: int, body: str, content_type: str = "text/html") -> None:
         """Answer something that is not JSON -- a proxy in the middle."""
         self._reply = _Reply(status=status, body=body, content_type=content_type)
+
+    def answers_json_raw(self, status: int, body: Any) -> None:
+        """Answer JSON with a status the gateway chose -- its own refusals."""
+        self._reply = _Reply(status=status, body=json.dumps(body))
