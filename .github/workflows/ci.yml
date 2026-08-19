@@ -81,9 +81,15 @@ jobs:
       # máquina, e aí ele reclama de pacote que não é nosso.
       #
       # `--skip-editable` deixa de fora o PRÓPRIO pacote, que o `uv sync`
-      # instala em modo editável e não existe no PyPI — com `--strict`, "não
-      # consegui auditar" é erro, e o SDK reprovava a si mesmo.
-      - run: uv run pip-audit --skip-editable --strict
+      # instala em modo editável e não existe no PyPI.
+      #
+      # E `--strict` NÃO entra junto: ele reprova quando a coleta falha em
+      # qualquer dependência, e "pulado" conta como coleta falha — os dois se
+      # anulam, e o SDK reprovava a si mesmo. Sem `--strict` o portão continua
+      # fazendo o que importa: vulnerabilidade encontrada reprova o job. O que
+      # se perde é o aviso de dependência inauditável, e aqui existe
+      # exatamente uma instalação editável — a nossa.
+      - run: uv run pip-audit --skip-editable
 
   build:
     name: Empacotamento

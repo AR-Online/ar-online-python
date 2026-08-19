@@ -167,7 +167,7 @@ O portão, peça por peça:
 | `uv run mypy` | `mypy --strict` sobre `src/` **e** `tests/` |
 | `uv run codespell` | ortografia |
 | `uv run pytest` | testes — reprova abaixo de **95%** de linhas |
-| `uv run pip-audit --strict` | vulnerabilidade conhecida em dependência |
+| `uv run pip-audit --skip-editable` | vulnerabilidade conhecida em dependência |
 
 | métrica | valor |
 |---|---|
