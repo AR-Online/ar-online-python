@@ -63,7 +63,7 @@ from aronline.models import (
 )
 
 #: This package's version -- the same string ``pyproject.toml`` carries.
-VERSION = "0.1.0"
+VERSION = "0.3.0"
 
 __all__ = [
     "CHANNELS",
